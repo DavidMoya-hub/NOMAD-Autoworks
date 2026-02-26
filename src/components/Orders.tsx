@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { apiFetch } from '../utils/api';
 
 interface Order {
   id: number;
@@ -29,16 +30,10 @@ export default function Orders() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [ordersRes, clientsRes, vehiclesRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/clients'),
-        fetch('/api/vehicles')
-      ]);
-      
       const [ordersData, clientsData, vehiclesData] = await Promise.all([
-        ordersRes.json(),
-        clientsRes.json(),
-        vehiclesRes.json()
+        apiFetch('/api/orders'),
+        apiFetch('/api/clients'),
+        apiFetch('/api/vehicles')
       ]);
 
       setOrders(Array.isArray(ordersData) ? ordersData : []);
@@ -46,7 +41,7 @@ export default function Orders() {
       setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error('Error al cargar datos:', err);
       setLoading(false);
     }
   }, []);
@@ -63,8 +58,16 @@ export default function Orders() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar esta orden?')) return;
-    await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-    fetchData();
+    try {
+      const result = await apiFetch(`/api/orders/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        fetchData();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo eliminar la orden'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
   };
 
   const filteredOrders = (Array.isArray(orders) ? orders : []).filter(o => 
@@ -205,20 +208,21 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
   const handleQuickClientSubmit = async () => {
     if (!quickClient.nombre || !quickClient.telefono) return;
     try {
-      const res = await fetch('/api/clients', {
+      const result = await apiFetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quickClient),
       });
-      const result = await res.json();
       if (result.success) {
         alert('Cliente creado. Por favor selecciónalo de la lista.');
         setShowQuickClient(false);
         setQuickClient({ nombre: '', telefono: '', direccion: '' });
         onSave(); // This will refresh the lists in the parent
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo crear el cliente'));
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
     }
   };
 
@@ -229,40 +233,39 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
     }
     if (!quickVehicle.marca || !quickVehicle.modelo) return;
     try {
-      const res = await fetch('/api/vehicles', {
+      const result = await apiFetch('/api/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...quickVehicle, clienteid: formData.clienteid }),
       });
-      const result = await res.json();
       if (result.success) {
         alert('Vehículo creado. Por favor selecciónalo de la lista.');
         setShowQuickVehicle(false);
         setQuickVehicle({ marca: '', modelo: '', año: '', placas: '', vin: '' });
         onSave(); // This will refresh the lists in the parent
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo crear el vehículo'));
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/orders', {
+      const result = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const result = await res.json();
       if (result.success) {
         onSave();
       } else {
         alert('Error: ' + (result.message || 'No se pudo generar la orden'));
       }
-    } catch (err) {
-      console.error('Error al generar orden:', err);
-      alert('Error de conexión al servidor');
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión al servidor');
     }
   };
 

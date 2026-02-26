@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, User, Phone, MapPin, Trash2, Edit2 } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface Client {
   id: number;
@@ -15,22 +16,35 @@ export default function Clients() {
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-  const fetchClients = useCallback(() => {
-    fetch('/api/clients')
-      .then(res => res.json())
-      .then(data => {
-        setClients(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setClients([]);
-        setLoading(false);
-      });
+  const fetchClients = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/clients');
+      setClients(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error al cargar clientes:', err);
+      setClients([]);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
+    try {
+      const result = await apiFetch(`/api/clients/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        fetchClients();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo eliminar el cliente'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
+  };
 
   const filteredClients = clients.filter(c => 
     c.nombre?.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,10 +81,16 @@ export default function Clients() {
                 <User size={24} />
               </div>
               <div className="flex gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white">
+                <button 
+                  onClick={() => { setEditingClient(client); setShowModal(true); }}
+                  className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white"
+                >
                   <Edit2 size={16} />
                 </button>
-                <button className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-500">
+                <button 
+                  onClick={() => handleDelete(client.id)}
+                  className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-500"
+                >
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -117,20 +137,19 @@ function ClientModal({ client, onClose, onSave }: { client: Client | null, onClo
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/clients', {
+      const result = await apiFetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const result = await res.json();
+      
       if (result.success) {
         onSave();
       } else {
         alert('Error: ' + (result.message || 'No se pudo guardar el cliente'));
       }
-    } catch (err) {
-      console.error('Error al guardar cliente:', err);
-      alert('Error de conexión al servidor');
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión al servidor');
     }
   };
 

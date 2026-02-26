@@ -28,11 +28,22 @@ async function startServer() {
     }
 
     const response = await fetch(url.toString(), options);
+    const text = await response.text();
+    
     if (!response.ok) {
-      throw new Error(`GAS responded with ${response.status}`);
+      throw new Error(`GAS responded with ${response.status}: ${text.substring(0, 100)}`);
     }
-    const result = await response.json();
-    return result; // result is { success, data, message }
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("GAS returned non-JSON:", text);
+      // If it's HTML, it might be a Google login page or a script error
+      if (text.includes("<html")) {
+        throw new Error("El script de Google devolvió una página HTML en lugar de JSON. Asegúrate de que esté publicado como 'Anyone' y ejecutado como 'Me'.");
+      }
+      throw new Error("Error al procesar la respuesta del servidor de Google.");
+    }
   };
 
   // API Routes
@@ -46,31 +57,49 @@ async function startServer() {
   });
 
   const entityMapping: Record<string, string> = {
-    "orders": "Ordenes",
-    "expenses": "Gastos",
-    "clients": "Clientes",
-    "vehicles": "Vehiculos",
+    "orders": "Orden",
+    "expenses": "Gasto",
+    "clients": "Cliente",
+    "vehicles": "Vehiculo",
     "inventory": "Inventario"
   };
   
   Object.entries(entityMapping).forEach(([route, gasEntity]) => {
     app.get(`/api/${route}`, async (req, res) => {
       try {
-        const action = `get${gasEntity}`;
-        const result = await callGAS(action);
+        const action = `get${gasEntity}${gasEntity.endsWith('o') || gasEntity.endsWith('e') || gasEntity.endsWith('a') ? 's' : 'es'}`;
+        // Special case for inventory and others if needed
+        let finalAction = action;
+        if (gasEntity === "Orden") finalAction = "getOrdenes";
+        if (gasEntity === "Cliente") finalAction = "getClientes";
+        if (gasEntity === "Gasto") finalAction = "getGastos";
+        if (gasEntity === "Vehiculo") finalAction = "getVehiculos";
+        if (gasEntity === "Inventario") finalAction = "getInventario";
+
+        const result = await callGAS(finalAction);
         res.json(result.data);
-      } catch (err) {
-        res.status(500).json({ error: err.toString() });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || err.toString() });
       }
     });
 
     app.post(`/api/${route}`, async (req, res) => {
       try {
-        const action = `create${gasEntity.replace(/s$/, "")}`;
+        const action = `create${gasEntity}`;
         const result = await callGAS(action, "POST", req.body);
         res.json(result);
-      } catch (err) {
-        res.status(500).json({ error: err.toString() });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || err.toString() });
+      }
+    });
+
+    app.delete(`/api/${route}/:id`, async (req, res) => {
+      try {
+        const action = `delete${gasEntity}`;
+        const result = await callGAS(action, "POST", { id: req.params.id });
+        res.json(result);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || err.toString() });
       }
     });
   });

@@ -1,19 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Calendar, Download, Filter, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 export default function Reports() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/stats')
-      .then(res => res.json())
-      .then(data => {
-        setStats(data);
-        setLoading(false);
-      });
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/stats');
+      setStats(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error al cargar estadísticas:', err);
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const data = [
     { name: 'Ene', ingresos: 4500, gastos: 3200 },

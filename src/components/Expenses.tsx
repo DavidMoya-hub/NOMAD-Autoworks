@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Trash2, Receipt, Calendar, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { apiFetch } from '../utils/api';
 
 interface Expense {
   id: number;
@@ -22,17 +23,16 @@ export default function Expenses() {
     amount: 0,
   });
 
-  const fetchExpenses = useCallback(() => {
-    fetch('/api/expenses')
-      .then(res => res.json())
-      .then(data => {
-        setExpenses(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setExpenses([]);
-        setLoading(false);
-      });
+  const fetchExpenses = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/expenses');
+      setExpenses(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error al cargar gastos:', err);
+      setExpenses([]);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -42,12 +42,11 @@ export default function Expenses() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/expenses', {
+      const result = await apiFetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const result = await res.json();
       if (result.success) {
         setShowModal(false);
         setFormData({
@@ -60,9 +59,8 @@ export default function Expenses() {
       } else {
         alert('Error: ' + (result.message || 'No se pudo registrar el gasto'));
       }
-    } catch (err) {
-      console.error('Error al registrar gasto:', err);
-      alert('Error de conexión al servidor');
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión al servidor');
     }
   };
 

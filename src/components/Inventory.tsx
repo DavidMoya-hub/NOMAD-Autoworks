@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, Package, AlertTriangle, Trash2, Edit2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface InventoryItem {
   id: number;
@@ -16,23 +17,37 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
-  const fetchInventory = useCallback(() => {
-    fetch('/api/inventory')
-      .then(res => res.json())
-      .then(data => {
-        setItems(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setItems([]);
-        setLoading(false);
-      });
+  const fetchInventory = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/inventory');
+      setItems(Array.isArray(data) ? data : []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error al cargar inventario:', err);
+      setItems([]);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     fetchInventory();
   }, [fetchInventory]);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar este repuesto?')) return;
+    try {
+      const result = await apiFetch(`/api/inventory/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        fetchInventory();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo eliminar el repuesto'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
+  };
 
   const filteredItems = items.filter(i => 
     i.nombre?.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,7 +68,7 @@ export default function Inventory() {
           />
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => { setEditingItem(null); setShowModal(true); }}
           className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center text-sm"
         >
           <Plus size={18} />
@@ -136,10 +151,16 @@ export default function Inventory() {
                   <td className="p-4 text-sm font-bold text-right">${item.precio_venta.toLocaleString()}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white">
+                      <button 
+                        onClick={() => { setEditingItem(item); setShowModal(true); }}
+                        className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white"
+                      >
                         <Edit2 size={14} />
                       </button>
-                      <button className="p-2 hover:bg-red-500/10 rounded-lg text-white/60 hover:text-red-500">
+                      <button 
+                        onClick={() => handleDelete(item.id)}
+                        className="p-2 hover:bg-red-500/10 rounded-lg text-white/60 hover:text-red-500"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -153,6 +174,7 @@ export default function Inventory() {
 
       {showModal && (
         <InventoryModal 
+          item={editingItem}
           onClose={() => setShowModal(false)}
           onSave={() => { setShowModal(false); fetchInventory(); }}
         />
@@ -161,33 +183,31 @@ export default function Inventory() {
   );
 }
 
-function InventoryModal({ onClose, onSave }: { onClose: () => void, onSave: () => void }) {
+function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null, onClose: () => void, onSave: () => void }) {
   const [formData, setFormData] = useState({
-    nombre: '',
-    sku: '',
-    stock: 0,
-    precio_venta: 0,
-    costo: 0,
-    alerta_min: 5,
+    nombre: item?.nombre || '',
+    sku: item?.sku || '',
+    stock: item?.stock || 0,
+    precio_venta: item?.precio_venta || 0,
+    costo: item?.costo || 0,
+    alerta_min: item?.alerta_min || 5,
   });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/inventory', {
+      const result = await apiFetch('/api/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const result = await res.json();
       if (result.success) {
         onSave();
       } else {
         alert('Error: ' + (result.message || 'No se pudo guardar el repuesto'));
       }
-    } catch (err) {
-      console.error('Error al guardar repuesto:', err);
-      alert('Error de conexión al servidor');
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión al servidor');
     }
   };
 

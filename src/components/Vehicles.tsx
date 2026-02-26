@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, Car, User, Hash, Calendar, Trash2, Edit2 } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface Vehicle {
   id: number;
@@ -17,18 +18,19 @@ export default function Vehicles() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [vRes, cRes] = await Promise.all([
-        fetch('/api/vehicles'),
-        fetch('/api/clients')
+      const [vData, cData] = await Promise.all([
+        apiFetch('/api/vehicles'),
+        apiFetch('/api/clients')
       ]);
-      const [vData, cData] = await Promise.all([vRes.json(), cRes.json()]);
       setVehicles(Array.isArray(vData) ? vData : []);
       setClients(Array.isArray(cData) ? cData : []);
       setLoading(false);
     } catch (err) {
+      console.error('Error al cargar datos:', err);
       setLoading(false);
     }
   }, []);
@@ -36,6 +38,20 @@ export default function Vehicles() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar este vehículo?')) return;
+    try {
+      const result = await apiFetch(`/api/vehicles/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        fetchData();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo eliminar el vehículo'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
+  };
 
   const getClientName = (id: number) => clients.find(c => c.id === id)?.nombre || 'Desconocido';
 
@@ -60,7 +76,7 @@ export default function Vehicles() {
           />
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => { setEditingVehicle(null); setShowModal(true); }}
           className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center text-sm"
         >
           <Plus size={18} />
@@ -76,10 +92,16 @@ export default function Vehicles() {
                 <Car size={24} />
               </div>
               <div className="flex gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                <button className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white">
+                <button 
+                  onClick={() => { setEditingVehicle(vehicle); setShowModal(true); }}
+                  className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white"
+                >
                   <Edit2 size={16} />
                 </button>
-                <button className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-500">
+                <button 
+                  onClick={() => handleDelete(vehicle.id)}
+                  className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-500"
+                >
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -134,20 +156,18 @@ function VehicleModal({ clients, onClose, onSave }: { clients: any[], onClose: (
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/vehicles', {
+      const result = await apiFetch('/api/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const result = await res.json();
       if (result.success) {
         onSave();
       } else {
         alert('Error: ' + (result.message || 'No se pudo guardar el vehículo'));
       }
-    } catch (err) {
-      console.error('Error al guardar vehículo:', err);
-      alert('Error de conexión al servidor');
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión al servidor');
     }
   };
 

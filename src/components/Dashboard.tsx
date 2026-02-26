@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -23,6 +23,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
+import { apiFetch } from '../utils/api';
 
 interface Stats {
   totalIncome: number;
@@ -42,14 +43,20 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/stats')
-      .then(res => res.json())
-      .then(data => {
-        setStats(data);
-        setLoading(false);
-      });
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await apiFetch('/api/stats');
+      setStats(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error al cargar estadísticas:', err);
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading || !stats) return <div className="animate-pulse space-y-8">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
