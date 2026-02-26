@@ -133,12 +133,22 @@ function VehicleModal({ clients, onClose, onSave }: { clients: any[], onClose: (
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch('/api/vehicles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    onSave();
+    try {
+      const res = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        onSave();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo guardar el vehículo'));
+      }
+    } catch (err) {
+      console.error('Error al guardar vehículo:', err);
+      alert('Error de conexión al servidor');
+    }
   };
 
   return (

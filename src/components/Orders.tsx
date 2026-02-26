@@ -194,6 +194,8 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
 
   const [showQuickClient, setShowQuickClient] = useState(false);
   const [quickClient, setQuickClient] = useState({ nombre: '', telefono: '', direccion: '' });
+  const [showQuickVehicle, setShowQuickVehicle] = useState(false);
+  const [quickVehicle, setQuickVehicle] = useState({ marca: '', modelo: '', año: '', placas: '', vin: '' });
 
   useEffect(() => {
     const ganancia = Number(formData.total) - (Number(formData.costo_partes) + Number(formData.costo_mano_obra));
@@ -210,9 +212,6 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
       });
       const result = await res.json();
       if (result.success) {
-        // We need the ID. Since GAS appendRow doesn't return the ID easily in this generic setup, 
-        // we might need to fetch clients again or assume the last one.
-        // For simplicity, let's just refresh the parent and close the quick form.
         alert('Cliente creado. Por favor selecciónalo de la lista.');
         setShowQuickClient(false);
         setQuickClient({ nombre: '', telefono: '', direccion: '' });
@@ -223,14 +222,48 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
     }
   };
 
+  const handleQuickVehicleSubmit = async () => {
+    if (!formData.clienteid) {
+      alert('Primero selecciona un cliente');
+      return;
+    }
+    if (!quickVehicle.marca || !quickVehicle.modelo) return;
+    try {
+      const res = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...quickVehicle, clienteid: formData.clienteid }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Vehículo creado. Por favor selecciónalo de la lista.');
+        setShowQuickVehicle(false);
+        setQuickVehicle({ marca: '', modelo: '', año: '', placas: '', vin: '' });
+        onSave(); // This will refresh the lists in the parent
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    onSave();
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        onSave();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo generar la orden'));
+      }
+    } catch (err) {
+      console.error('Error al generar orden:', err);
+      alert('Error de conexión al servidor');
+    }
   };
 
   return (
@@ -284,13 +317,63 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Vehículo</label>
-              <select required className="input-field w-full" value={formData.vehiculoid} onChange={e => setFormData({...formData, vehiculoid: Number(e.target.value)})}>
-                <option value="">Seleccionar Vehículo</option>
-                {vehicles.filter(v => v.clienteid === formData.clienteid).map(v => (
-                  <option key={v.id} value={v.id}>{v.marca} {v.modelo} ({v.placas})</option>
-                ))}
-              </select>
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-white/40 uppercase">Vehículo</label>
+                <button 
+                  type="button" 
+                  onClick={() => setShowQuickVehicle(!showQuickVehicle)}
+                  className="text-[10px] text-brand-blue hover:underline"
+                >
+                  {showQuickVehicle ? 'Cancelar' : '+ Nuevo Vehículo'}
+                </button>
+              </div>
+
+              {showQuickVehicle ? (
+                <div className="p-3 bg-white/5 rounded-xl space-y-3 border border-brand-blue/20">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      placeholder="Marca" 
+                      className="input-field w-full text-xs" 
+                      value={quickVehicle.marca} 
+                      onChange={e => setQuickVehicle({...quickVehicle, marca: e.target.value})}
+                    />
+                    <input 
+                      placeholder="Modelo" 
+                      className="input-field w-full text-xs" 
+                      value={quickVehicle.modelo} 
+                      onChange={e => setQuickVehicle({...quickVehicle, modelo: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      placeholder="Año" 
+                      className="input-field w-full text-xs" 
+                      value={quickVehicle.año} 
+                      onChange={e => setQuickVehicle({...quickVehicle, año: e.target.value})}
+                    />
+                    <input 
+                      placeholder="Placas" 
+                      className="input-field w-full text-xs" 
+                      value={quickVehicle.placas} 
+                      onChange={e => setQuickVehicle({...quickVehicle, placas: e.target.value})}
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleQuickVehicleSubmit}
+                    className="w-full py-1.5 bg-brand-blue text-white text-xs font-bold rounded-lg"
+                  >
+                    Guardar Vehículo
+                  </button>
+                </div>
+              ) : (
+                <select required className="input-field w-full" value={formData.vehiculoid} onChange={e => setFormData({...formData, vehiculoid: Number(e.target.value)})}>
+                  <option value="">Seleccionar Vehículo</option>
+                  {vehicles.filter(v => v.clienteid === formData.clienteid).map(v => (
+                    <option key={v.id} value={v.id}>{v.marca} {v.modelo} ({v.placas})</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Fecha</label>

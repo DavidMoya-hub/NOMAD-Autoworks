@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 
-const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbzuucqFqqKk4lhdi9N2HkgLAhJ0KCbjB1_kiOvdvFzVmwi5YKx6YIrXV9nrEOj0RtV4Jw/exec";
+const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbpbAO7BV2wDpyN77ds_jTGSi-mxmpzh1juPck9UYF4BLhxE9Z0iUDeOD6YMkK-1crwvw/exec";
 
 async function startServer() {
   const app = express();
@@ -11,7 +11,7 @@ async function startServer() {
   app.use(express.json());
 
   // Helper to call GAS
-  const callGAS = async (action: string, method: string = "GET", body: any = null) => {
+  const callGAS = async (action: string, method: string = "GET", payload: any = null) => {
     const url = new URL(GAS_URL);
     if (method === "GET") {
       url.searchParams.append("action", action);
@@ -23,51 +23,51 @@ async function startServer() {
     };
 
     if (method === "POST") {
-      options.body = JSON.stringify({ action, ...body });
-      options.headers = { "Content-Type": "text/plain" }; // GAS expects text/plain for POST data usually
+      options.body = JSON.stringify({ action, payload });
+      options.headers = { "Content-Type": "text/plain" };
     }
 
     const response = await fetch(url.toString(), options);
     if (!response.ok) {
       throw new Error(`GAS responded with ${response.status}`);
     }
-    const data = await response.json();
-    if (data && data.error) {
-      throw new Error(data.error);
-    }
-    return data;
+    const result = await response.json();
+    return result; // result is { success, data, message }
   };
 
   // API Routes
   app.get("/api/stats", async (req, res) => {
     try {
-      const stats = await callGAS("getStats");
-      res.json(stats);
+      const result = await callGAS("getDashboard");
+      res.json(result.data);
     } catch (err) {
       res.status(500).json({ error: err.toString() });
     }
   });
 
-  const entityRoutes = ["orders", "expenses", "clients", "vehicles", "inventory"];
+  const entityMapping: Record<string, string> = {
+    "orders": "Ordenes",
+    "expenses": "Gastos",
+    "clients": "Clientes",
+    "vehicles": "Vehiculos",
+    "inventory": "Inventario"
+  };
   
-  entityRoutes.forEach(entity => {
-    app.get(`/api/${entity}`, async (req, res) => {
+  Object.entries(entityMapping).forEach(([route, gasEntity]) => {
+    app.get(`/api/${route}`, async (req, res) => {
       try {
-        const action = `get${entity.charAt(0).toUpperCase() + entity.slice(1)}`;
-        const data = await callGAS(action);
-        res.json(data);
+        const action = `get${gasEntity}`;
+        const result = await callGAS(action);
+        res.json(result.data);
       } catch (err) {
         res.status(500).json({ error: err.toString() });
       }
     });
 
-    app.post(`/api/${entity}`, async (req, res) => {
+    app.post(`/api/${route}`, async (req, res) => {
       try {
-        const action = `add${entity.charAt(0).toUpperCase() + entity.slice(1).replace(/s$/, "")}`;
-        // Map body to array for GAS appendRow
-        // This is a simplification; in a real app, we'd map keys to columns
-        const data = Object.values(req.body);
-        const result = await callGAS(action, "POST", { data });
+        const action = `create${gasEntity.replace(/s$/, "")}`;
+        const result = await callGAS(action, "POST", req.body);
         res.json(result);
       } catch (err) {
         res.status(500).json({ error: err.toString() });

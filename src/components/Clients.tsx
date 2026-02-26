@@ -116,12 +116,22 @@ function ClientModal({ client, onClose, onSave }: { client: Client | null, onClo
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch('/api/clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    onSave();
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        onSave();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo guardar el cliente'));
+      }
+    } catch (err) {
+      console.error('Error al guardar cliente:', err);
+      alert('Error de conexión al servidor');
+    }
   };
 
   return (

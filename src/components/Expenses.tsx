@@ -41,19 +41,29 @@ export default function Expenses() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch('/api/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    setShowModal(false);
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      type: 'Operativo',
-      description: '',
-      amount: 0,
-    });
-    fetchExpenses();
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setShowModal(false);
+        setFormData({
+          date: new Date().toISOString().split('T')[0],
+          type: 'Operativo',
+          description: '',
+          amount: 0,
+        });
+        fetchExpenses();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo registrar el gasto'));
+      }
+    } catch (err) {
+      console.error('Error al registrar gasto:', err);
+      alert('Error de conexión al servidor');
+    }
   };
 
   const handleDelete = async (id: number) => {

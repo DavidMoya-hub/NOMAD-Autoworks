@@ -173,12 +173,22 @@ function InventoryModal({ onClose, onSave }: { onClose: () => void, onSave: () =
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await fetch('/api/inventory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    onSave();
+    try {
+      const res = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        onSave();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo guardar el repuesto'));
+      }
+    } catch (err) {
+      console.error('Error al guardar repuesto:', err);
+      alert('Error de conexión al servidor');
+    }
   };
 
   return (
