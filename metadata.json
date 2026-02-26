@@ -1,0 +1,5 @@
+{
+  "name": "NOMAD Autoworks Manager",
+  "description": "Sistema integral de administración para taller mecánico con dashboard financiero, gestión de órdenes y control de gastos operativos.",
+  "requestFramePermissions": []
+}
