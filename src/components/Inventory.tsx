@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, Package, AlertTriangle, Trash2, Edit2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface InventoryItem {
@@ -17,7 +17,7 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
 
-  const fetchInventory = () => {
+  const fetchInventory = useCallback(() => {
     fetch('/api/inventory')
       .then(res => res.json())
       .then(data => {
@@ -28,9 +28,11 @@ export default function Inventory() {
         setItems([]);
         setLoading(false);
       });
-  };
+  }, []);
 
-  useEffect(fetchInventory, []);
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
 
   const filteredItems = items.filter(i => 
     i.nombre?.toLowerCase().includes(search.toLowerCase()) ||

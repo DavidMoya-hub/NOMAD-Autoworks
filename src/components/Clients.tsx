@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, User, Phone, MapPin, Trash2, Edit2 } from 'lucide-react';
 
 interface Client {
@@ -15,7 +15,7 @@ export default function Clients() {
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-  const fetchClients = () => {
+  const fetchClients = useCallback(() => {
     fetch('/api/clients')
       .then(res => res.json())
       .then(data => {
@@ -26,9 +26,11 @@ export default function Clients() {
         setClients([]);
         setLoading(false);
       });
-  };
+  }, []);
 
-  useEffect(fetchClients, []);
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const filteredClients = clients.filter(c => 
     c.nombre?.toLowerCase().includes(search.toLowerCase()) ||

@@ -1,5 +1,5 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Plus, Trash2, Receipt, Calendar, Tag, DollarSign } from 'lucide-react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
+import { Plus, Trash2, Receipt, Calendar, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -22,7 +22,7 @@ export default function Expenses() {
     amount: 0,
   });
 
-  const fetchExpenses = () => {
+  const fetchExpenses = useCallback(() => {
     fetch('/api/expenses')
       .then(res => res.json())
       .then(data => {
@@ -33,9 +33,11 @@ export default function Expenses() {
         setExpenses([]);
         setLoading(false);
       });
-  };
+  }, []);
 
-  useEffect(fetchExpenses, []);
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Car, User, Calendar, DollarSign } from 'lucide-react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
+import { Plus, Search, Edit2, Trash2, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -27,7 +27,7 @@ export default function Orders() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [search, setSearch] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [ordersRes, clientsRes, vehiclesRes] = await Promise.all([
         fetch('/api/orders'),
@@ -49,11 +49,11 @@ export default function Orders() {
       console.error(err);
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const getClientName = (id: number) => clients.find(c => c.id === id)?.nombre || 'Cliente Desconocido';
   const getVehicleInfo = (id: number) => {

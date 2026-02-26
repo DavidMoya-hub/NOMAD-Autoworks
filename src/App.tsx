@@ -4,20 +4,12 @@ import {
   LayoutDashboard, 
   ClipboardList, 
   Receipt, 
-  Settings, 
-  Plus, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
   Car,
-  ChevronRight,
   Menu,
   X,
-  LogOut,
   Users,
   Package,
-  BarChart2,
-  ShieldCheck
+  BarChart2
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Orders from './components/Orders';

@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { Plus, Search, Car, User, Hash, Calendar, Trash2, Edit2 } from 'lucide-react';
 
 interface Vehicle {
@@ -18,7 +18,7 @@ export default function Vehicles() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [vRes, cRes] = await Promise.all([
         fetch('/api/vehicles'),
@@ -31,11 +31,11 @@ export default function Vehicles() {
     } catch (err) {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const getClientName = (id: number) => clients.find(c => c.id === id)?.nombre || 'Desconocido';
 

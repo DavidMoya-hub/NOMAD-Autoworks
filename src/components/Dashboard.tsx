@@ -4,9 +4,7 @@ import {
   TrendingDown, 
   DollarSign, 
   Car, 
-  Clock, 
   CheckCircle2, 
-  XCircle,
   BarChart3,
   PieChart as PieChartIcon,
   Bell,
@@ -29,11 +27,15 @@ import {
 interface Stats {
   totalIncome: number;
   totalExpenses: number;
+  monthIncome: number;
+  monthExpenses: number;
   netProfit: number;
   statusCounts: Record<string, number>;
   avgTicket: number;
   margin: number;
   ordersCount: number;
+  inWorkshop: number;
+  lowStockCount: number;
 }
 
 export default function Dashboard() {
