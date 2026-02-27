@@ -254,15 +254,18 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const result = await apiFetch('/api/orders', {
-        method: 'POST',
+      const url = order ? `/api/orders/${order.id}` : '/api/orders';
+      const method = order ? 'PUT' : 'POST';
+
+      const result = await apiFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       if (result.success) {
         onSave();
       } else {
-        alert('Error: ' + (result.message || 'No se pudo generar la orden'));
+        alert('Error: ' + (result.message || 'No se pudo guardar la orden'));
       }
     } catch (err: any) {
       alert(err.message || 'Error de conexión al servidor');

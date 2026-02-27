@@ -137,8 +137,11 @@ function ClientModal({ client, onClose, onSave }: { client: Client | null, onClo
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const result = await apiFetch('/api/clients', {
-        method: 'POST',
+      const url = client ? `/api/clients/${client.id}` : '/api/clients';
+      const method = client ? 'PUT' : 'POST';
+      
+      const result = await apiFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });

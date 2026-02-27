@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 
-const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbpbAO7BV2wDpyN77ds_jTGSi-mxmpzh1juPck9UYF4BLhxE9Z0iUDeOD6YMkK-1crwvw/exec";
+const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbzidqa-bBBPTqRC80CD2hwyPWad0C5939-6xNRCc0Sd1S6QuJ8ANSes_isEEo8Wv_cZCw/exec";
 
 async function startServer() {
   const app = express();
@@ -87,6 +87,16 @@ async function startServer() {
       try {
         const action = `create${gasEntity}`;
         const result = await callGAS(action, "POST", req.body);
+        res.json(result);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message || err.toString() });
+      }
+    });
+
+    app.put(`/api/${route}/:id`, async (req, res) => {
+      try {
+        const action = `update${gasEntity}`;
+        const result = await callGAS(action, "POST", { ...req.body, id: req.params.id });
         res.json(result);
       } catch (err: any) {
         res.status(500).json({ error: err.message || err.toString() });

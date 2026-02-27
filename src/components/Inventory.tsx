@@ -196,8 +196,11 @@ function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null,
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const result = await apiFetch('/api/inventory', {
-        method: 'POST',
+      const url = item ? `/api/inventory/${item.id}` : '/api/inventory';
+      const method = item ? 'PUT' : 'POST';
+
+      const result = await apiFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });

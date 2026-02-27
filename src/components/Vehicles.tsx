@@ -134,6 +134,7 @@ export default function Vehicles() {
 
       {showModal && (
         <VehicleModal 
+          vehicle={editingVehicle}
           clients={clients}
           onClose={() => setShowModal(false)}
           onSave={() => { setShowModal(false); fetchData(); }}
@@ -143,21 +144,24 @@ export default function Vehicles() {
   );
 }
 
-function VehicleModal({ clients, onClose, onSave }: { clients: any[], onClose: () => void, onSave: () => void }) {
+function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle | null, clients: any[], onClose: () => void, onSave: () => void }) {
   const [formData, setFormData] = useState({
-    clienteid: '',
-    marca: '',
-    modelo: '',
-    año: new Date().getFullYear(),
-    placas: '',
-    vin: '',
+    clienteid: vehicle?.clienteid.toString() || '',
+    marca: vehicle?.marca || '',
+    modelo: vehicle?.modelo || '',
+    año: vehicle?.año || new Date().getFullYear(),
+    placas: vehicle?.placas || '',
+    vin: vehicle?.vin || '',
   });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const result = await apiFetch('/api/vehicles', {
-        method: 'POST',
+      const url = vehicle ? `/api/vehicles/${vehicle.id}` : '/api/vehicles';
+      const method = vehicle ? 'PUT' : 'POST';
+
+      const result = await apiFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });

@@ -66,8 +66,16 @@ export default function Expenses() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Eliminar este gasto?')) return;
-    await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-    fetchExpenses();
+    try {
+      const result = await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        fetchExpenses();
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo eliminar el gasto'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
   };
 
   const totalExpenses = (Array.isArray(expenses) ? expenses : []).reduce((acc, e) => acc + (e.amount || 0), 0);
