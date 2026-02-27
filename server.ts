@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 
-const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbzidqa-bBBPTqRC80CD2hwyPWad0C5939-6xNRCc0Sd1S6QuJ8ANSes_isEEo8Wv_cZCw/exec";
+const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbyvsPSiCum7_qDuAdWpiV84aeTCotLVx4EPm2DfTEXpXy1U50A9uoXxNB7W9buaZOkf9w/exec";
 
 async function startServer() {
   const app = express();
@@ -37,12 +37,15 @@ async function startServer() {
     try {
       return JSON.parse(text);
     } catch (e) {
-      console.error("GAS returned non-JSON:", text);
+      console.error("GAS returned non-JSON:", text.substring(0, 500));
       // If it's HTML, it might be a Google login page or a script error
       if (text.includes("<html")) {
-        throw new Error("El script de Google devolvió una página HTML en lugar de JSON. Asegúrate de que esté publicado como 'Anyone' y ejecutado como 'Me'.");
+        if (text.includes("Google Accounts") || text.includes("login")) {
+          throw new Error("Error de permisos: El script de Google requiere iniciar sesión. Asegúrate de que esté publicado como 'Anyone' (Cualquiera) y NO solo para tu organización.");
+        }
+        throw new Error(`El script de Google devolvió una página HTML. Esto suele ser un error interno del script o falta de permisos. Inicio de la respuesta: ${text.substring(0, 100)}...`);
       }
-      throw new Error("Error al procesar la respuesta del servidor de Google.");
+      throw new Error("Error al procesar la respuesta del servidor de Google. La respuesta no es un JSON válido.");
     }
   };
 
@@ -50,9 +53,10 @@ async function startServer() {
   app.get("/api/stats", async (req, res) => {
     try {
       const result = await callGAS("getDashboard");
+      if (!result.success) throw new Error(result.message || "Error al obtener estadísticas");
       res.json(result.data);
-    } catch (err) {
-      res.status(500).json({ error: err.toString() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || err.toString() });
     }
   });
 
@@ -77,6 +81,7 @@ async function startServer() {
         if (gasEntity === "Inventario") finalAction = "getInventario";
 
         const result = await callGAS(finalAction);
+        if (!result.success) throw new Error(result.message || `Error al obtener ${route}`);
         res.json(result.data);
       } catch (err: any) {
         res.status(500).json({ error: err.message || err.toString() });
@@ -87,6 +92,7 @@ async function startServer() {
       try {
         const action = `create${gasEntity}`;
         const result = await callGAS(action, "POST", req.body);
+        if (!result.success) throw new Error(result.message || `Error al crear ${gasEntity}`);
         res.json(result);
       } catch (err: any) {
         res.status(500).json({ error: err.message || err.toString() });
@@ -97,6 +103,7 @@ async function startServer() {
       try {
         const action = `update${gasEntity}`;
         const result = await callGAS(action, "POST", { ...req.body, id: req.params.id });
+        if (!result.success) throw new Error(result.message || `Error al actualizar ${gasEntity}`);
         res.json(result);
       } catch (err: any) {
         res.status(500).json({ error: err.message || err.toString() });
@@ -107,6 +114,7 @@ async function startServer() {
       try {
         const action = `delete${gasEntity}`;
         const result = await callGAS(action, "POST", { id: req.params.id });
+        if (!result.success) throw new Error(result.message || `Error al eliminar ${gasEntity}`);
         res.json(result);
       } catch (err: any) {
         res.status(500).json({ error: err.message || err.toString() });

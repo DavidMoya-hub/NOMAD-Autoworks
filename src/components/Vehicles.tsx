@@ -154,6 +154,30 @@ function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle 
     vin: vehicle?.vin || '',
   });
 
+  const [showQuickClient, setShowQuickClient] = useState(false);
+  const [quickClient, setQuickClient] = useState({ nombre: '', telefono: '', direccion: '' });
+
+  const handleQuickClientSubmit = async () => {
+    if (!quickClient.nombre || !quickClient.telefono) return;
+    try {
+      const result = await apiFetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quickClient),
+      });
+      if (result.success) {
+        alert('Cliente creado. Por favor selecciónalo de la lista.');
+        setShowQuickClient(false);
+        setQuickClient({ nombre: '', telefono: '', direccion: '' });
+        onSave(); // Refresca la lista de clientes en el padre
+      } else {
+        alert('Error: ' + (result.message || 'No se pudo crear el cliente'));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error de conexión');
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
@@ -182,13 +206,49 @@ function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle 
           <h2 className="text-xl font-display font-bold">Nuevo Vehículo</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white"><Plus className="rotate-45" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase">Dueño / Cliente</label>
-            <select required className="input-field w-full" value={formData.clienteid} onChange={e => setFormData({...formData, clienteid: e.target.value})}>
-              <option value="">Seleccionar Cliente</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-white/40 uppercase">Dueño / Cliente</label>
+              {!vehicle && (
+                <button 
+                  type="button" 
+                  onClick={() => setShowQuickClient(!showQuickClient)}
+                  className="text-[10px] text-brand-blue hover:underline"
+                >
+                  {showQuickClient ? 'Cancelar' : '+ Nuevo Cliente'}
+                </button>
+              )}
+            </div>
+
+            {showQuickClient ? (
+              <div className="p-3 bg-white/5 rounded-xl space-y-3 border border-brand-blue/20">
+                <input 
+                  placeholder="Nombre" 
+                  className="input-field w-full text-xs" 
+                  value={quickClient.nombre} 
+                  onChange={e => setQuickClient({...quickClient, nombre: e.target.value})}
+                />
+                <input 
+                  placeholder="Teléfono" 
+                  className="input-field w-full text-xs" 
+                  value={quickClient.telefono} 
+                  onChange={e => setQuickClient({...quickClient, telefono: e.target.value})}
+                />
+                <button 
+                  type="button"
+                  onClick={handleQuickClientSubmit}
+                  className="w-full py-2 bg-brand-blue text-white text-[10px] font-bold rounded-lg"
+                >
+                  CREAR CLIENTE
+                </button>
+              </div>
+            ) : (
+              <select required className="input-field w-full" value={formData.clienteid} onChange={e => setFormData({...formData, clienteid: e.target.value})}>
+                <option value="">Seleccionar Cliente</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
