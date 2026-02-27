@@ -45,7 +45,20 @@ export default function Expenses() {
   const fetchExpenses = useCallback(async () => {
     try {
       const data = await apiFetch('/api/expenses');
-      setExpenses(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        // TRADUCTOR MÁGICO: Convierte las mayúsculas de Google al formato de tu web
+        const normalized = data.map(item => ({
+          ...item,
+          id: item.id || item.Id || item.ID || item.Id_Gasto,
+          fecha: item.fecha || item.Fecha || item.date,
+          categoria: item.categoria || item.Categoria || item.type,
+          descripcion: item.descripcion || item.Descripcion || item.description,
+          monto: Number(item.monto || item.Monto || item.amount || 0)
+        }));
+        setExpenses(normalized);
+      } else {
+        setExpenses([]);
+      }
       setLoading(false);
     } catch (err) {
       console.error('Error al cargar gastos:', err);
