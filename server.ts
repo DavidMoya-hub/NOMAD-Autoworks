@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 
-const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbyvsPSiCum7_qDuAdWpiV84aeTCotLVx4EPm2DfTEXpXy1U50A9uoXxNB7W9buaZOkf9w/exec";
+const GAS_URL = process.env.GAS_URL || "https://script.google.com/macros/s/AKfycbx1DWkdsoxy8YrEuzxnyyRpNBVa0iLE9O2PSuWrpbqAZzJbHO7yFW4iNwl13TGHfOh8Kg/exec";
 
 async function startServer() {
   const app = express();

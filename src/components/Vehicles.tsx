@@ -8,7 +8,6 @@ interface Vehicle {
   marca: string;
   modelo: string;
   año: number;
-  placas: string;
   vin: string;
 }
 
@@ -58,7 +57,6 @@ export default function Vehicles() {
   const filteredVehicles = vehicles.filter(v => 
     v.marca?.toLowerCase().includes(search.toLowerCase()) ||
     v.modelo?.toLowerCase().includes(search.toLowerCase()) ||
-    v.placas?.toLowerCase().includes(search.toLowerCase()) ||
     getClientName(v.clienteid).toLowerCase().includes(search.toLowerCase())
   );
 
@@ -85,8 +83,8 @@ export default function Vehicles() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
-          <div key={vehicle.id} className="glass-card p-6 group relative">
+        {filteredVehicles.map((vehicle, index) => (
+          <div key={vehicle.id || `vehicle-${index}`} className="glass-card p-6 group relative">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center">
                 <Car size={24} />
@@ -107,8 +105,7 @@ export default function Vehicles() {
               </div>
             </div>
             
-            <h3 className="text-lg font-bold mb-1">{vehicle.marca} {vehicle.modelo}</h3>
-            <div className="text-xs text-brand-blue font-bold uppercase tracking-widest mb-4">{vehicle.placas}</div>
+            <h3 className="text-lg font-bold mb-4">{vehicle.marca} {vehicle.modelo}</h3>
             
             <div className="space-y-3 text-sm text-white/60">
               <div className="flex items-center gap-3">
@@ -150,7 +147,6 @@ function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle 
     marca: vehicle?.marca || '',
     modelo: vehicle?.modelo || '',
     año: vehicle?.año || new Date().getFullYear(),
-    placas: vehicle?.placas || '',
     vin: vehicle?.vin || '',
   });
 
@@ -203,7 +199,7 @@ function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle 
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="glass-card w-full max-w-md overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-white/5 flex justify-between items-center">
-          <h2 className="text-xl font-display font-bold">Nuevo Vehículo</h2>
+          <h2 className="text-xl font-display font-bold">{vehicle ? 'Editar Vehículo' : 'Nuevo Vehículo'}</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white"><Plus className="rotate-45" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
@@ -262,10 +258,6 @@ function VehicleModal({ vehicle, clients, onClose, onSave }: { vehicle: Vehicle 
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Año</label>
               <input type="number" required className="input-field w-full" value={formData.año} onChange={e => setFormData({...formData, año: Number(e.target.value)})} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Placas</label>
-              <input required className="input-field w-full" value={formData.placas} onChange={e => setFormData({...formData, placas: e.target.value})} />
             </div>
           </div>
           <div className="space-y-2">

@@ -74,8 +74,8 @@ export default function Clients() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClients.map((client) => (
-          <div key={client.id} className="glass-card p-6 group relative">
+        {filteredClients.map((client, index) => (
+          <div key={client.id || `client-${index}`} className="glass-card p-6 group relative">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
                 <User size={24} />

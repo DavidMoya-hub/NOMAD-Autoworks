@@ -5,11 +5,11 @@ import { apiFetch } from '../utils/api';
 interface InventoryItem {
   id: number;
   nombre: string;
-  sku: string;
-  stock: number;
-  precio_venta: number;
+  categoria: string;
+  stock_actual: number;
+  precio: number;
   costo: number;
-  alerta_min: number;
+  stock_minimo: number;
 }
 
 export default function Inventory() {
@@ -51,7 +51,7 @@ export default function Inventory() {
 
   const filteredItems = items.filter(i => 
     i.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    i.sku?.toLowerCase().includes(search.toLowerCase())
+    i.categoria?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -92,7 +92,7 @@ export default function Inventory() {
           </div>
           <div>
             <div className="text-[10px] text-white/40 uppercase font-bold">Stock Bajo</div>
-            <div className="text-xl font-bold">{items.filter(i => i.stock <= i.alerta_min).length}</div>
+            <div className="text-xl font-bold">{items.filter(i => (Number(i.stock_actual) || 0) <= (Number(i.stock_minimo) || 0)).length}</div>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-4">
@@ -101,7 +101,7 @@ export default function Inventory() {
           </div>
           <div>
             <div className="text-[10px] text-white/40 uppercase font-bold">Valor Venta</div>
-            <div className="text-xl font-bold">${items.reduce((acc, i) => acc + (i.precio_venta * i.stock), 0).toLocaleString()}</div>
+            <div className="text-xl font-bold">${items.reduce((acc, i) => acc + ((Number(i.precio) || 0) * (Number(i.stock_actual) || 0)), 0).toLocaleString()}</div>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-4">
@@ -110,7 +110,7 @@ export default function Inventory() {
           </div>
           <div>
             <div className="text-[10px] text-white/40 uppercase font-bold">Costo Total</div>
-            <div className="text-xl font-bold">${items.reduce((acc, i) => acc + (i.costo * i.stock), 0).toLocaleString()}</div>
+            <div className="text-xl font-bold">${items.reduce((acc, i) => acc + ((Number(i.costo) || 0) * (Number(i.stock_actual) || 0)), 0).toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function Inventory() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-white/5 bg-white/5">
-                <th className="p-4 text-xs font-bold text-white/40 uppercase tracking-wider">SKU</th>
+                <th className="p-4 text-xs font-bold text-white/40 uppercase tracking-wider">Categoría</th>
                 <th className="p-4 text-xs font-bold text-white/40 uppercase tracking-wider">Nombre</th>
                 <th className="p-4 text-xs font-bold text-white/40 uppercase tracking-wider text-center">Stock</th>
                 <th className="p-4 text-xs font-bold text-white/40 uppercase tracking-wider text-right">Costo</th>
@@ -129,12 +129,12 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredItems.map((item) => (
-                <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="p-4 text-sm font-mono text-white/40">{item.sku}</td>
+              {filteredItems.map((item, index) => (
+                <tr key={item.id || `item-${index}`} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="p-4 text-sm font-mono text-white/40">{item.categoria}</td>
                   <td className="p-4">
                     <div className="text-sm font-medium">{item.nombre}</div>
-                    {item.stock <= item.alerta_min && (
+                    {(Number(item.stock_actual) || 0) <= (Number(item.stock_minimo) || 0) && (
                       <div className="text-[10px] text-red-500 flex items-center gap-1 mt-0.5">
                         <AlertTriangle size={10} /> Stock Crítico
                       </div>
@@ -142,13 +142,13 @@ export default function Inventory() {
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      item.stock <= item.alerta_min ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'
+                      (Number(item.stock_actual) || 0) <= (Number(item.stock_minimo) || 0) ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'
                     }`}>
-                      {item.stock}
+                      {item.stock_actual}
                     </span>
                   </td>
-                  <td className="p-4 text-sm text-right text-white/40">${item.costo.toLocaleString()}</td>
-                  <td className="p-4 text-sm font-bold text-right">${item.precio_venta.toLocaleString()}</td>
+                  <td className="p-4 text-sm text-right text-white/40">${(Number(item.costo) || 0).toLocaleString()}</td>
+                  <td className="p-4 text-sm font-bold text-right">${(Number(item.precio) || 0).toLocaleString()}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                       <button 
@@ -186,11 +186,11 @@ export default function Inventory() {
 function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null, onClose: () => void, onSave: () => void }) {
   const [formData, setFormData] = useState({
     nombre: item?.nombre || '',
-    sku: item?.sku || '',
-    stock: item?.stock || 0,
-    precio_venta: item?.precio_venta || 0,
-    costo: item?.costo || 0,
-    alerta_min: item?.alerta_min || 5,
+    categoria: item?.categoria || '',
+    stock_actual: item?.stock_actual?.toString() || '',
+    precio: item?.precio?.toString() || '',
+    costo: item?.costo?.toString() || '',
+    stock_minimo: item?.stock_minimo?.toString() || '5',
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -199,10 +199,18 @@ function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null,
       const url = item ? `/api/inventory/${item.id}` : '/api/inventory';
       const method = item ? 'PUT' : 'POST';
 
+      const payload = {
+        ...formData,
+        stock_actual: Number(formData.stock_actual) || 0,
+        precio: Number(formData.precio) || 0,
+        costo: Number(formData.costo) || 0,
+        stock_minimo: Number(formData.stock_minimo) || 0,
+      };
+
       const result = await apiFetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (result.success) {
         onSave();
@@ -218,7 +226,7 @@ function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null,
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="glass-card w-full max-w-md overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-white/5 flex justify-between items-center">
-          <h2 className="text-xl font-display font-bold">Agregar Repuesto</h2>
+          <h2 className="text-xl font-display font-bold">{item ? 'Editar Repuesto' : 'Agregar Repuesto'}</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white"><Plus className="rotate-45" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -228,24 +236,30 @@ function InventoryModal({ item, onClose, onSave }: { item: InventoryItem | null,
               <input required className="input-field w-full" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">SKU / Código</label>
-              <input required className="input-field w-full" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} />
+              <label className="text-xs font-bold text-white/40 uppercase">Categoría / Código</label>
+              <input required className="input-field w-full" value={formData.categoria} onChange={e => setFormData({...formData, categoria: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Stock Inicial</label>
-              <input type="number" required className="input-field w-full" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+              <input type="number" required className="input-field w-full" value={formData.stock_actual} onChange={e => setFormData({...formData, stock_actual: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Costo</label>
-              <input type="number" required className="input-field w-full" value={formData.costo} onChange={e => setFormData({...formData, costo: Number(e.target.value)})} />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">$</span>
+                <input type="number" step="0.01" required className="input-field w-full pl-8" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Precio Venta</label>
-              <input type="number" required className="input-field w-full" value={formData.precio_venta} onChange={e => setFormData({...formData, precio_venta: Number(e.target.value)})} />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">$</span>
+                <input type="number" step="0.01" required className="input-field w-full pl-8" value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} />
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/40 uppercase">Alerta Stock Bajo</label>
-              <input type="number" required className="input-field w-full" value={formData.alerta_min} onChange={e => setFormData({...formData, alerta_min: Number(e.target.value)})} />
+              <input type="number" required className="input-field w-full" value={formData.stock_minimo} onChange={e => setFormData({...formData, stock_minimo: e.target.value})} />
             </div>
           </div>
           <div className="flex justify-end gap-4 pt-4">

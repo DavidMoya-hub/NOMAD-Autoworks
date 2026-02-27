@@ -1,123 +1,37 @@
 /**
- * NOMAD Autoworks - Backend Robusto (Google Apps Script)
- * Copia y pega este código en tu editor de Google Apps Script.
- * 
- * Instrucciones:
- * 1. Abre tu Google Sheet.
- * 2. Ve a Extensiones > Apps Script.
- * 3. Borra todo el código existente y pega este.
- * 4. Haz clic en "Implementar" > "Nueva implementación".
- * 5. Selecciona "Aplicación web".
- * 6. Configura: "Ejecutar como: Yo" y "Quién tiene acceso: Cualquiera".
- * 7. Copia la URL de la aplicación web y actualiza tu variable GAS_URL.
+ * NOMAD Autoworks - Backend Inteligente v3.6
+ * Este código detecta automáticamente las columnas por su nombre.
  */
 
 const CONFIG = {
   SHEETS: {
-    CLIENTES: {
-      name: "Clientes",
-      headers: ["id", "nombre", "telefono", "email", "fecha_creacion"]
-    },
-    VEHICULOS: {
-      name: "Vehiculos",
-      headers: ["id", "cliente_id", "marca", "modelo", "placa", "año", "fecha_creacion"]
-    },
-    ORDENES: {
-      name: "Ordenes",
-      headers: ["id", "fecha", "cliente_id", "vehiculo_id", "descripcion", "estado", "total", "pagado"]
-    },
-    GASTOS: {
-      name: "Gastos",
-      headers: ["fecha", "categoria", "descripcion", "monto"]
-    },
-    INVENTARIO: {
-      name: "Inventario",
-      headers: ["id", "nombre", "categoria", "costo", "precio", "stock_actual", "stock_minimo"]
-    }
+    CLIENTES: { name: "Clientes", headers: ["id", "nombre", "telefono", "email", "direccion", "fecha_creacion"] },
+    VEHICULOS: { name: "Vehiculos", headers: ["id", "clienteid", "marca", "modelo", "año", "vin", "fecha_creacion"] },
+    ORDENES: { name: "Ordenes", headers: ["id", "fecha", "clienteid", "vehiculoid", "servicio", "estado", "total", "costo_partes", "costo_mano_obra", "ganancia", "comentarios", "itemsjson"] },
+    GASTOS: { name: "Gastos", headers: ["id", "fecha", "categoria", "descripcion", "monto"] },
+    INVENTARIO: { name: "Inventario", headers: ["id", "nombre", "categoria", "costo", "precio", "stock_actual", "stock_minimo"] }
   }
 };
 
-/**
- * Inicializa el sistema creando todas las hojas necesarias.
- * Puedes ejecutar esta función manualmente desde el editor de Apps Script.
- */
-function initializeSystem() {
-  try {
-    Object.values(CONFIG.SHEETS).forEach(sheetConfig => {
-      getOrCreateSheet(sheetConfig.name, sheetConfig.headers);
-    });
-    return createJsonResponse(true, null, "Sistema inicializado correctamente.");
-  } catch (e) {
-    return createJsonResponse(false, null, "Error al inicializar: " + e.toString());
-  }
-}
-
-/**
- * Obtiene una hoja por nombre o la crea con encabezados si no existe.
- */
-function getOrCreateSheet(name, headers) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(name);
-  
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.appendRow(headers);
-    // Formatear encabezados
-    sheet.getRange(1, 1, 1, headers.length)
-      .setBackground("#0078D2")
-      .setFontColor("white")
-      .setFontWeight("bold");
-    sheet.setFrozenRows(1);
-  }
-  
-  return sheet;
-}
-
-/**
- * Maneja peticiones GET
- */
 function doGet(e) {
   try {
     const action = e.parameter.action;
-    let data = [];
-    let message = "Operación exitosa";
-
     if (!action) throw new Error("Acción no especificada");
 
-    switch (action) {
-      case "getClientes":
-        data = readData(CONFIG.SHEETS.CLIENTES);
-        break;
-      case "getVehiculos":
-        data = readData(CONFIG.SHEETS.VEHICULOS);
-        break;
-      case "getOrdenes":
-        data = readData(CONFIG.SHEETS.ORDENES);
-        break;
-      case "getGastos":
-        data = readData(CONFIG.SHEETS.GASTOS);
-        break;
-      case "getInventario":
-        data = readData(CONFIG.SHEETS.INVENTARIO);
-        break;
-      case "getDashboard":
-        data = calculateDashboardStats();
-        break;
-      case "initialize":
-        return initializeSystem();
-      default:
-        throw new Error("Acción GET no reconocida: " + action);
-    }
+    let data = [];
+    if (action === "getDashboard") data = calculateDashboardStats();
+    else if (action === "getClientes") data = readData(CONFIG.SHEETS.CLIENTES);
+    else if (action === "getVehiculos") data = readData(CONFIG.SHEETS.VEHICULOS);
+    else if (action === "getOrdenes") data = readData(CONFIG.SHEETS.ORDENES);
+    else if (action === "getGastos") data = readData(CONFIG.SHEETS.GASTOS);
+    else if (action === "getInventario") data = readData(CONFIG.SHEETS.INVENTARIO);
+    else if (action === "initialize") return initializeSystem();
+    else throw new Error("Acción GET no reconocida");
 
-    return createJsonResponse(true, data, message);
-  } catch (err) {
-    return createJsonResponse(false, null, err.toString());
-  }
+    return createJsonResponse(true, data, "OK");
+  } catch (err) { return createJsonResponse(false, null, err.toString()); }
 }
 
-/**
- * Maneja peticiones POST
- */
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
@@ -125,173 +39,218 @@ function doPost(e) {
     const payload = body.payload;
     let result = null;
 
-    if (!action) throw new Error("Acción POST no especificada");
+    if (action.startsWith("create")) {
+      const entity = action.replace("create", "").toUpperCase();
+      const config = CONFIG.SHEETS[entity] || CONFIG.SHEETS[entity + 'S'];
+      result = createRecord(config, payload);
+    } 
+    else if (action.startsWith("update")) {
+      const entity = action.replace("update", "").toUpperCase();
+      const config = CONFIG.SHEETS[entity] || CONFIG.SHEETS[entity + 'S'];
+      result = updateRecord(config, payload);
+    } 
+    else if (action.startsWith("delete")) {
+      const entity = action.replace("delete", "").toUpperCase();
+      const config = CONFIG.SHEETS[entity] || CONFIG.SHEETS[entity + 'S'];
+      result = deleteRecord(config, payload.id);
+    } 
+    else throw new Error("Acción POST no reconocida");
 
-    switch (action) {
-      case "createCliente":
-        result = createRecord(CONFIG.SHEETS.CLIENTES, payload);
-        break;
-      case "updateCliente":
-        result = updateRecord(CONFIG.SHEETS.CLIENTES, payload);
-        break;
-      case "deleteCliente":
-        result = deleteRecord(CONFIG.SHEETS.CLIENTES, payload.id);
-        break;
-      case "createVehiculo":
-        result = createRecord(CONFIG.SHEETS.VEHICULOS, payload);
-        break;
-      case "updateVehiculo":
-        result = updateRecord(CONFIG.SHEETS.VEHICULOS, payload);
-        break;
-      case "deleteVehiculo":
-        result = deleteRecord(CONFIG.SHEETS.VEHICULOS, payload.id);
-        break;
-      case "createOrden":
-        result = createRecord(CONFIG.SHEETS.ORDENES, payload);
-        break;
-      case "updateOrden":
-        result = updateRecord(CONFIG.SHEETS.ORDENES, payload);
-        break;
-      case "deleteOrden":
-        result = deleteRecord(CONFIG.SHEETS.ORDENES, payload.id);
-        break;
-      case "createGasto":
-        result = createRecord(CONFIG.SHEETS.GASTOS, payload, false);
-        break;
-      case "createInventario":
-        result = createRecord(CONFIG.SHEETS.INVENTARIO, payload);
-        break;
-      case "updateInventario":
-        result = updateRecord(CONFIG.SHEETS.INVENTARIO, payload);
-        break;
-      case "deleteInventario":
-        result = deleteRecord(CONFIG.SHEETS.INVENTARIO, payload.id);
-        break;
-      default:
-        throw new Error("Acción POST no reconocida: " + action);
-    }
-
-    return createJsonResponse(true, result, "Operación completada");
-  } catch (err) {
-    return createJsonResponse(false, null, err.toString());
-  }
+    return createJsonResponse(true, result, "Operación exitosa");
+  } catch (err) { return createJsonResponse(false, null, err.toString()); }
 }
 
-/**
- * Lee datos de una hoja y los convierte a objeto JSON
- */
+function calculateDashboardStats() {
+  const ordenes = readData(CONFIG.SHEETS.ORDENES);
+  const gastos = readData(CONFIG.SHEETS.GASTOS);
+  const inventario = readData(CONFIG.SHEETS.INVENTARIO);
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  let totalIncome = 0;
+  let monthIncome = 0;
+  let statusCounts = {};
+  let inWorkshop = 0;
+
+  ordenes.forEach(o => {
+    const val = Number(o.total) || 0;
+    totalIncome += val;
+    
+    const fechaRaw = o.fecha || o.date;
+    if (fechaRaw) {
+      const d = new Date(fechaRaw);
+      if (!isNaN(d.getTime())) {
+        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+          monthIncome += val;
+        }
+      }
+    }
+    
+    const status = o.estado || "Desconocido";
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+    if (status !== "Entregado" && status !== "Cancelado") inWorkshop++;
+  });
+
+  let totalExpenses = 0;
+  let monthExpenses = 0;
+  gastos.forEach(g => {
+    const val = Number(g.monto || g.amount) || 0;
+    totalExpenses += val;
+    
+    const fechaRaw = g.fecha || g.date;
+    if (fechaRaw) {
+      const d = new Date(fechaRaw);
+      if (!isNaN(d.getTime())) {
+        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+          monthExpenses += val;
+        }
+      }
+    }
+  });
+
+  const netProfit = totalIncome - totalExpenses;
+  const lowStockCount = inventario.filter(i => Number(i.stock_actual) <= Number(i.stock_minimo)).length;
+
+  return {
+    totalIncome, totalExpenses, monthIncome, monthExpenses, netProfit,
+    statusCounts, avgTicket: ordenes.length > 0 ? totalIncome / ordenes.length : 0,
+    margin: totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0,
+    ordersCount: ordenes.length, inWorkshop, lowStockCount
+  };
+}
+
+function getOrCreateSheet(name, headers) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setBackground("#0078D2").setFontColor("white").setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
 function readData(sheetConfig) {
   const sheet = getOrCreateSheet(sheetConfig.name, sheetConfig.headers);
   const rows = sheet.getDataRange().getValues();
   if (rows.length <= 1) return [];
   
-  const headers = rows[0];
-  const data = [];
-
-  for (let i = 1; i < rows.length; i++) {
+  // Normalize headers from the sheet
+  const sheetHeaders = rows[0].map(h => String(h).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  
+  return rows.slice(1).map(row => {
     const obj = {};
-    rows[i].forEach((val, idx) => {
-      obj[headers[idx]] = val;
+    sheetConfig.headers.forEach(h => {
+      const normalizedExpected = h.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const idx = sheetHeaders.indexOf(normalizedExpected);
+      if (idx !== -1) {
+        obj[h] = row[idx];
+      }
     });
-    data.push(obj);
-  }
-  return data;
+    return obj;
+  });
 }
 
-/**
- * Crea un nuevo registro con ID incremental
- */
-function createRecord(sheetConfig, data, hasId = true) {
+function createRecord(sheetConfig, data) {
   const sheet = getOrCreateSheet(sheetConfig.name, sheetConfig.headers);
-  const headers = sheetConfig.headers;
+  const rows = sheet.getDataRange().getValues();
+  const sheetHeaders = rows[0].map(h => String(h).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
   
-  if (hasId) {
+  if (sheetHeaders.includes("id")) {
     const lastRow = sheet.getLastRow();
-    let nextId = 1;
-    if (lastRow > 1) {
-      const lastId = sheet.getRange(lastRow, 1).getValue();
-      nextId = (parseInt(lastId) || 0) + 1;
-    }
-    data.id = nextId;
-  }
-  
-  if (headers.includes("fecha_creacion") && !data.fecha_creacion) {
-    data.fecha_creacion = new Date().toISOString();
+    data.id = lastRow > 1 ? (parseInt(sheet.getRange(lastRow, 1).getValue()) || 0) + 1 : 1;
   }
 
-  const row = headers.map(h => data[h] !== undefined ? data[h] : "");
-  sheet.appendRow(row);
+  const newRow = sheetHeaders.map(h => {
+    if (data[h] !== undefined) return data[h];
+    
+    const aliases = {
+      "fecha": ["date", "fecha_creacion"],
+      "monto": ["amount", "total"],
+      "categoria": ["type", "sku", "categoria"],
+      "descripcion": ["description", "servicio"],
+      "clienteid": ["cliente_id"],
+      "vehiculoid": ["vehiculo_id"]
+    };
+    
+    const possibleKeys = aliases[h] || [];
+    for (const key of possibleKeys) {
+      if (data[key] !== undefined) return data[key];
+    }
+    return "";
+  });
+
+  sheet.appendRow(newRow);
   return data;
 }
 
-/**
- * Actualiza un registro existente por ID
- */
 function updateRecord(sheetConfig, data) {
   const sheet = getOrCreateSheet(sheetConfig.name, sheetConfig.headers);
   const rows = sheet.getDataRange().getValues();
-  const id = data.id;
+  const sheetHeaders = rows[0].map(h => String(h).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
   
+  // Find ID column
+  const idIdx = sheetHeaders.indexOf("id");
+  if (idIdx === -1) throw new Error("La hoja no tiene columna ID");
+
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] == id) {
-      const rowNum = i + 1;
-      const headers = sheetConfig.headers;
-      const newRow = headers.map(h => data[h] !== undefined ? data[h] : rows[i][headers.indexOf(h)]);
-      sheet.getRange(rowNum, 1, 1, headers.length).setValues([newRow]);
+    if (String(rows[i][idIdx]) === String(data.id)) {
+      const updatedRow = sheetHeaders.map((h, idx) => {
+        // If data has the exact header name, use it
+        if (data[h] !== undefined) return data[h];
+        
+        // Check aliases for the header
+        const aliases = {
+          "fecha": ["date", "fecha_creacion"],
+          "monto": ["amount", "total"],
+          "categoria": ["type", "sku", "categoria"],
+          "descripcion": ["description", "servicio"],
+          "clienteid": ["cliente_id"],
+          "vehiculoid": ["vehiculo_id"]
+        };
+        
+        const possibleKeys = aliases[h] || [];
+        for (const key of possibleKeys) {
+          if (data[key] !== undefined) return data[key];
+        }
+        
+        // Fallback to existing value in sheet
+        return rows[i][idx];
+      });
+      
+      sheet.getRange(i + 1, 1, 1, sheetHeaders.length).setValues([updatedRow]);
       return data;
     }
   }
-  throw new Error("Registro con ID " + id + " no encontrado en " + sheetConfig.name);
+  throw new Error("ID no encontrado: " + data.id);
 }
 
-/**
- * Elimina un registro por ID
- */
 function deleteRecord(sheetConfig, id) {
   const sheet = getOrCreateSheet(sheetConfig.name, sheetConfig.headers);
   const rows = sheet.getDataRange().getValues();
+  const sheetHeaders = rows[0].map(h => String(h).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
   
+  const idIdx = sheetHeaders.indexOf("id");
+  const searchIdx = idIdx === -1 ? 0 : idIdx; // Fallback to first column if no ID header
+
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] == id) {
+    if (String(rows[i][searchIdx]) === String(id)) {
       sheet.deleteRow(i + 1);
-      return { id: id, deleted: true };
+      return { id };
     }
   }
-  throw new Error("Registro con ID " + id + " no encontrado");
+  throw new Error("ID no encontrado para eliminar: " + id);
 }
 
-/**
- * Calcula estadísticas para el dashboard
- */
-function calculateDashboardStats() {
-  const ordenes = readData(CONFIG.SHEETS.ORDENES);
-  const gastos = readData(CONFIG.SHEETS.GASTOS);
-  
-  const totalIncome = ordenes.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  const monthIncome = totalIncome; // Simplificado
-  const totalExpenses = gastos.reduce((sum, g) => sum + (Number(g.monto) || 0), 0);
-  const monthExpenses = totalExpenses; // Simplificado
-  
-  return {
-    totalIncome,
-    monthIncome,
-    totalExpenses,
-    monthExpenses,
-    totalOrders: ordenes.length,
-    pendingOrders: ordenes.filter(o => o.estado !== "Completado" && o.estado !== "Entregado").length,
-    completedOrders: ordenes.filter(o => o.estado === "Completado" || o.estado === "Entregado").length
-  };
+function initializeSystem() {
+  Object.values(CONFIG.SHEETS).forEach(s => getOrCreateSheet(s.name, s.headers));
+  return createJsonResponse(true, null, "Sistema inicializado");
 }
 
-/**
- * Helper para crear respuesta JSON consistente
- */
 function createJsonResponse(success, data, message) {
-  const res = {
-    success: success,
-    data: data,
-    message: message
-  };
-  return ContentService.createTextOutput(JSON.stringify(res))
+  return ContentService.createTextOutput(JSON.stringify({ success, data, message }))
     .setMimeType(ContentService.MimeType.JSON);
 }

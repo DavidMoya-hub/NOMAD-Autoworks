@@ -53,7 +53,7 @@ export default function Orders() {
   const getClientName = (id: number) => clients.find(c => c.id === id)?.nombre || 'Cliente Desconocido';
   const getVehicleInfo = (id: number) => {
     const v = vehicles.find(v => v.id === id);
-    return v ? `${v.marca} ${v.modelo} (${v.placas})` : 'Vehículo Desconocido';
+    return v ? `${v.marca} ${v.modelo}` : 'Vehículo Desconocido';
   };
 
   const handleDelete = async (id: number) => {
@@ -124,11 +124,17 @@ export default function Orders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-white/[0.02] transition-colors group">
+              {filteredOrders.map((order, index) => (
+                <tr key={order.id || `order-${index}`} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="p-3 md:p-4 text-xs md:text-sm font-mono text-white/40">#{order.id}</td>
                   <td className="p-3 md:p-4 text-xs md:text-sm">
-                    {order.fecha ? format(new Date(order.fecha), 'dd MMM, yyyy', { locale: es }) : 'N/A'}
+                    {(() => {
+                      try {
+                        return order.fecha ? format(new Date(order.fecha), 'dd MMM, yyyy', { locale: es }) : 'N/A';
+                      } catch (e) {
+                        return 'Fecha Inválida';
+                      }
+                    })()}
                   </td>
                   <td className="p-3 md:p-4">
                     <div className="text-sm font-medium">{getClientName(order.clienteid)}</div>
@@ -187,21 +193,42 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
     vehiculoid: order?.vehiculoid || '',
     servicio: order?.servicio || '',
     estado: order?.estado || 'En ingreso',
-    total: order?.total || 0,
-    costo_partes: order?.costo_partes || 0,
-    costo_mano_obra: order?.costo_mano_obra || 0,
+    total: order?.total?.toString() || '',
+    costo_partes: order?.costo_partes?.toString() || '',
+    costo_mano_obra: order?.costo_mano_obra?.toString() || '',
     ganancia: order?.ganancia || 0,
     comentarios: order?.comentarios || '',
     itemsjson: order?.itemsjson || '[]',
   });
 
+  const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN');
+  const [exchangeRate, setExchangeRate] = useState(18.5); // Default rate
+
+  useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const data = await res.json();
+        if (data.rates && data.rates.MXN) {
+          setExchangeRate(data.rates.MXN);
+        }
+      } catch (e) {
+        console.error('Error fetching exchange rate:', e);
+      }
+    };
+    fetchRate();
+  }, []);
+
   const [showQuickClient, setShowQuickClient] = useState(false);
   const [quickClient, setQuickClient] = useState({ nombre: '', telefono: '', direccion: '' });
   const [showQuickVehicle, setShowQuickVehicle] = useState(false);
-  const [quickVehicle, setQuickVehicle] = useState({ marca: '', modelo: '', año: '', placas: '', vin: '' });
+  const [quickVehicle, setQuickVehicle] = useState({ marca: '', modelo: '', año: '', vin: '' });
 
   useEffect(() => {
-    const ganancia = Number(formData.total) - (Number(formData.costo_partes) + Number(formData.costo_mano_obra));
+    const total = Number(formData.total) || 0;
+    const parts = Number(formData.costo_partes) || 0;
+    const labor = Number(formData.costo_mano_obra) || 0;
+    const ganancia = total - (parts + labor);
     setFormData(prev => ({ ...prev, ganancia }));
   }, [formData.total, formData.costo_partes, formData.costo_mano_obra]);
 
@@ -241,7 +268,7 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
       if (result.success) {
         alert('Vehículo creado. Por favor selecciónalo de la lista.');
         setShowQuickVehicle(false);
-        setQuickVehicle({ marca: '', modelo: '', año: '', placas: '', vin: '' });
+        setQuickVehicle({ marca: '', modelo: '', año: '', vin: '' });
         onSave(); // This will refresh the lists in the parent
       } else {
         alert('Error: ' + (result.message || 'No se pudo crear el vehículo'));
@@ -257,10 +284,21 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
       const url = order ? `/api/orders/${order.id}` : '/api/orders';
       const method = order ? 'PUT' : 'POST';
 
+      // Convert to Pesos if USD selected
+      const multiplier = currency === 'USD' ? exchangeRate : 1;
+      
+      const payload = {
+        ...formData,
+        total: (Number(formData.total) || 0) * multiplier,
+        costo_partes: (Number(formData.costo_partes) || 0) * multiplier,
+        costo_mano_obra: (Number(formData.costo_mano_obra) || 0) * multiplier,
+        ganancia: (Number(formData.ganancia) || 0) * multiplier,
+      };
+
       const result = await apiFetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (result.success) {
         onSave();
@@ -358,10 +396,10 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
                       onChange={e => setQuickVehicle({...quickVehicle, año: e.target.value})}
                     />
                     <input 
-                      placeholder="Placas" 
+                      placeholder="VIN" 
                       className="input-field w-full text-xs" 
-                      value={quickVehicle.placas} 
-                      onChange={e => setQuickVehicle({...quickVehicle, placas: e.target.value})}
+                      value={quickVehicle.vin} 
+                      onChange={e => setQuickVehicle({...quickVehicle, vin: e.target.value})}
                     />
                   </div>
                   <button 
@@ -376,7 +414,7 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
                 <select required className="input-field w-full" value={formData.vehiculoid} onChange={e => setFormData({...formData, vehiculoid: Number(e.target.value)})}>
                   <option value="">Seleccionar Vehículo</option>
                   {vehicles.filter(v => v.clienteid === formData.clienteid).map(v => (
-                    <option key={v.id} value={v.id}>{v.marca} {v.modelo} ({v.placas})</option>
+                    <option key={v.id} value={v.id}>{v.marca} {v.modelo}</option>
                   ))}
                 </select>
               )}
@@ -405,21 +443,75 @@ function OrderModal({ order, clients, vehicles, onClose, onSave }: { order: Orde
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+            <div className="md:col-span-2 flex items-center gap-4 mb-2">
+              <label className="text-xs font-bold text-white/40 uppercase">Moneda:</label>
+              <div className="flex bg-white/5 p-1 rounded-lg">
+                <button 
+                  type="button"
+                  onClick={() => setCurrency('MXN')}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-colors ${currency === 'MXN' ? 'bg-brand-blue text-white' : 'text-white/40 hover:text-white'}`}
+                >
+                  PESOS (MXN)
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setCurrency('USD')}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-colors ${currency === 'USD' ? 'bg-brand-blue text-white' : 'text-white/40 hover:text-white'}`}
+                >
+                  DÓLARES (USD)
+                </button>
+              </div>
+              {currency === 'USD' && (
+                <div className="text-[10px] text-white/40">
+                  Tasa: <span className="text-brand-blue font-bold">${exchangeRate.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Total Cobrado</label>
-              <input type="number" required className="input-field w-full text-lg font-bold text-brand-blue" value={formData.total} onChange={e => setFormData({...formData, total: Number(e.target.value)})} />
+              <label className="text-xs font-bold text-white/40 uppercase">Total Cobrado {currency === 'USD' ? '(USD)' : '(MXN)'}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">$</span>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  className="input-field w-full pl-8 text-lg font-bold text-brand-blue" 
+                  value={formData.total} 
+                  onChange={e => setFormData({...formData, total: e.target.value})} 
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Ganancia Estimada</label>
-              <div className="input-field w-full bg-white/5 font-bold text-green-500 text-lg">${formData.ganancia.toLocaleString()}</div>
+              <label className="text-xs font-bold text-white/40 uppercase">Ganancia Estimada {currency === 'USD' ? '(USD)' : '(MXN)'}</label>
+              <div className="input-field w-full bg-white/5 font-bold text-green-500 text-lg">
+                ${(Number(formData.ganancia) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Costo Partes</label>
-              <input type="number" className="input-field w-full" value={formData.costo_partes} onChange={e => setFormData({...formData, costo_partes: Number(e.target.value)})} />
+              <label className="text-xs font-bold text-white/40 uppercase">Costo Partes {currency === 'USD' ? '(USD)' : '(MXN)'}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">$</span>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  className="input-field w-full pl-8" 
+                  value={formData.costo_partes} 
+                  onChange={e => setFormData({...formData, costo_partes: e.target.value})} 
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-white/40 uppercase">Costo Mano Obra</label>
-              <input type="number" className="input-field w-full" value={formData.costo_mano_obra} onChange={e => setFormData({...formData, costo_mano_obra: Number(e.target.value)})} />
+              <label className="text-xs font-bold text-white/40 uppercase">Costo Mano Obra {currency === 'USD' ? '(USD)' : '(MXN)'}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20">$</span>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  className="input-field w-full pl-8" 
+                  value={formData.costo_mano_obra} 
+                  onChange={e => setFormData({...formData, costo_mano_obra: e.target.value})} 
+                />
+              </div>
             </div>
           </div>
 
