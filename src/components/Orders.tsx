@@ -36,9 +36,28 @@ export default function Orders() {
         apiFetch('/api/vehicles')
       ]);
 
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
-      setClients(Array.isArray(clientsData) ? clientsData : []);
-      setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
+      // TRADUCTOR MÁGICO: Sincroniza los IDs y nombres desde Google Apps Script
+      const normalize = (data: any[]) => {
+        if (!Array.isArray(data)) return [];
+        return data.map(item => ({
+          ...item,
+          id: item.id || item.Id || item.ID || item.Id_Cliente || item.Id_Vehiculo || item.Id_Orden,
+          clienteid: Number(item.clienteid || item.clienteId || item.ClienteId || item.Id_Cliente || 0),
+          vehiculoid: Number(item.vehiculoid || item.vehiculoId || item.VehiculoId || item.Id_Vehiculo || 0),
+          marca: item.marca || item.Marca,
+          modelo: item.modelo || item.Modelo,
+          nombre: item.nombre || item.Nombre,
+          fecha: item.fecha || item.Fecha,
+          servicio: item.servicio || item.Servicio,
+          estado: item.estado || item.Estado,
+          total: Number(item.total || item.Total || 0),
+          ganancia: Number(item.ganancia || item.Ganancia || 0)
+        }));
+      };
+
+      setOrders(normalize(ordersData));
+      setClients(normalize(clientsData));
+      setVehicles(normalize(vehiclesData));
       setLoading(false);
     } catch (err) {
       console.error('Error al cargar datos:', err);
